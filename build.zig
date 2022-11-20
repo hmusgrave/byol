@@ -11,7 +11,7 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("byol", "src/main.zig");
+    const exe = b.addExecutable("byol", "src/byol.zig");
     exe.setTarget(target);
     exe.use_stage1 = true; // TODO: zig#6025
     exe.setBuildMode(mode);
@@ -26,7 +26,7 @@ pub fn build(b: *std.build.Builder) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const exe_tests = b.addTest("src/main.zig");
+    const exe_tests = b.addTest("src/byol.zig");
     exe_tests.setTarget(target);
     exe_tests.use_stage1 = true; // TODO: zig#6025
     exe_tests.test_evented_io = true;
