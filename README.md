@@ -68,6 +68,4 @@ The scheduler works and does everything I need it to. However:
 
 1. The API is a bit wonky. E.g., I don't like the Scheduler `init` function accepting a numeric argument and not telling you what it is.
 
-1. We should probably provide a suitable allocator. The Scheduler mostly just allocates and deallocates the exact same sort of object over and over, and a thread-safe bump allocator variant [based on something like this](https://zig.news/xq/cool-zig-patterns-gotta-alloc-fast-23h) will be vastly preferrable than just letting the user pass in a general purpose allocator or an arena.
-
 1. It _might_ be nice to provide a wrapper where people only intending to use async for this one purpose don't have to concern themselves with setting up an event loop and getting their values out of it (or shunting their other code into it).
