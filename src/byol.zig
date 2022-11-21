@@ -1,28 +1,37 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const PoolAllocator = @import("poolalloc").PoolAllocator;
 
 // TODO: Zig#10967 (or similar)
 const Align = std.Target.stack_align;
 
 pub const Scheduler = struct {
+    pool: *PoolAllocator,
     allocator: Allocator,
+    root_allocator: Allocator,
     max_tasks: usize,
     active_tasks: *usize,
 
-    pub fn init(allocator: Allocator, max_tasks: usize) !@This() {
+    pub fn init(_allocator: Allocator, max_tasks: usize) !@This() {
+        const pool = try _allocator.create(PoolAllocator);
+        errdefer _allocator.destroy(pool);
+        pool.* = PoolAllocator.init(_allocator);
+        errdefer pool.deinit();
+        const allocator = pool.allocator();
         const active_tasks = try allocator.create(usize);
-        errdefer allocator.destroy(active_tasks);
         active_tasks.* = 0;
-
         return @This(){
+            .pool = pool,
             .allocator = allocator,
+            .root_allocator = _allocator,
             .max_tasks = max_tasks,
             .active_tasks = active_tasks,
         };
     }
 
     pub fn deinit(self: @This()) void {
-        self.allocator.destroy(self.active_tasks);
+        self.pool.deinit();
+        self.root_allocator.destroy(self.pool);
     }
 
     pub fn spawn(self: @This(), comptime f: anytype, comptime RtnT: ?type, args: anytype) !ResumeTicket(f, RtnT) {
@@ -37,7 +46,8 @@ pub const Scheduler = struct {
         };
 
         const F = @TypeOf(async _f(self, should_spawn, args));
-        var frame_ptr = try self.allocator.create(F);
+        var free_ptr = try self.allocator.alignedAlloc(u8, Align, @sizeOf(F));
+        var frame_ptr = @ptrCast(*F, free_ptr.ptr);
         errdefer self.allocator.destroy(frame_ptr);
         frame_ptr.* = async _f(self, should_spawn, args);
 
@@ -45,7 +55,7 @@ pub const Scheduler = struct {
             resume frame_ptr;
 
         return ResumeTicket(f, RtnT){
-            .free_ptr = @intToPtr([*]align(Align) u8, @ptrToInt(frame_ptr))[0..@sizeOf(F)],
+            .free_ptr = free_ptr,
             .frame = frame_ptr,
             .resumed = should_spawn,
         };
