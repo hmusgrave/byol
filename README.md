@@ -14,7 +14,7 @@ Make your programs actually faster when you parallelize them:
 
 ## Installation
 
-Choose your favorite method for vendoring this code into your repository. I like [git-subrepo](https://github.com/ingydotnet/git-subrepo), I've heard a rumor that there exist people who like git submodules, copy-paste is always a winner, I've been meaning to try out [zigmod](https://github.com/nektro/zigmod), and whenever the official package manager is up we'll be there too.
+Choose your favorite method for vendoring this code into your repository. I'm using [zigmod](https://github.com/nektro/zigmod) to bring in the pool allocator for this project, and it's pretty painless. I also generally like [git-subrepo](https://github.com/ingydotnet/git-subrepo), copy-paste is always a winner, and whenever the official package manager is up we'll be there too.
 
 ## Examples
 
