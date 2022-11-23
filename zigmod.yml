@@ -3,5 +3,5 @@ name: byol
 main: src/byol.zig
 license: AGPL-3.0
 description: Bring Your Own Loop -- A memory-efficient, straggler-avoiding, cache-friendly scheduler
-root_dependencies:
+dependencies:
   - src: git https://github.com/hmusgrave/poolalloc
