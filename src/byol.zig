@@ -71,7 +71,12 @@ pub const Scheduler = struct {
 
 // TODO: Zig#2935
 fn GenericReturnT(comptime f: anytype, comptime T: ?type) type {
-    const BaseT = T orelse @typeInfo(@TypeOf(f)).Fn.return_type orelse @compileError("Return type inference failed");
+    comptime var BaseT: type = undefined;
+    if (T == null) {
+        BaseT = @typeInfo(@TypeOf(f)).Fn.return_type orelse @compileError("Return type inference failed");
+    } else {
+        BaseT = T.?;
+    }
 
     // TODO: wrong place, hard-coded error set
     return switch (@typeInfo(BaseT)) {
