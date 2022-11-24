@@ -34,8 +34,8 @@ pub const Scheduler = struct {
         self.root_allocator.destroy(self.pool);
     }
 
-    pub fn spawn(self: @This(), comptime f: anytype, comptime RtnT: ?type, args: anytype) !ResumeTicket(f, RtnT) {
-        const _f = ImmediateSuspendWrapper(f, RtnT)._f;
+    pub fn spawn(self: @This(), comptime f: anytype, args: anytype) !ResumeTicket(f) {
+        const _f = ImmediateSuspendWrapper(f)._f;
 
         const should_spawn = blk: {
             const prev_tasks = @atomicRmw(usize, self.active_tasks, .Add, 1, .Monotonic);
@@ -45,16 +45,20 @@ pub const Scheduler = struct {
             break :blk rtn;
         };
 
-        const F = @TypeOf(async _f(self, should_spawn, args));
+        // This is behaving a lot like @TypeOf(async _f(...)) is
+        // actually creating a frame;
+        var hack = async _f(self, should_spawn, args, true);
+        _ = await hack catch undefined;
+        const F = @TypeOf(hack);
+
         var free_ptr = try self.allocator.alignedAlloc(u8, Align, @sizeOf(F));
-        var frame_ptr = @ptrCast(*F, free_ptr.ptr);
-        errdefer self.allocator.destroy(frame_ptr);
-        frame_ptr.* = async _f(self, should_spawn, args);
+        errdefer self.allocator.free(free_ptr);
+        var frame_ptr = @asyncCall(free_ptr, {}, _f, .{ self, should_spawn, args, false });
 
         if (should_spawn)
             resume frame_ptr;
 
-        return ResumeTicket(f, RtnT){
+        return ResumeTicket(f){
             .free_ptr = free_ptr,
             .frame = frame_ptr,
             .resumed = should_spawn,
@@ -70,13 +74,8 @@ pub const Scheduler = struct {
 };
 
 // TODO: Zig#2935
-fn GenericReturnT(comptime f: anytype, comptime T: ?type) type {
-    comptime var BaseT: type = undefined;
-    if (T == null) {
-        BaseT = @typeInfo(@TypeOf(f)).Fn.return_type orelse @compileError("Return type inference failed");
-    } else {
-        BaseT = T.?;
-    }
+fn GenericReturnT(comptime f: anytype) type {
+    const BaseT = @typeInfo(@TypeOf(f)).Fn.return_type orelse @compileError("Return type inference failed");
 
     // TODO: wrong place, hard-coded error set
     return switch (@typeInfo(BaseT)) {
@@ -87,17 +86,19 @@ fn GenericReturnT(comptime f: anytype, comptime T: ?type) type {
     };
 }
 
-fn ResumeTicket(comptime f: anytype, comptime T: ?type) type {
+fn ResumeTicket(comptime f: anytype) type {
     return struct {
         free_ptr: []align(Align) u8,
-        frame: anyframe->GenericReturnT(f, T),
+        frame: anyframe->GenericReturnT(f),
         resumed: bool,
     };
 }
 
-fn ImmediateSuspendWrapper(comptime f: anytype, comptime RtnT: ?type) type {
+fn ImmediateSuspendWrapper(comptime f: anytype) type {
     return struct {
-        pub fn _f(scheduler: Scheduler, should_yield: bool, args: anytype) GenericReturnT(f, RtnT) {
+        pub fn _f(scheduler: Scheduler, should_yield: bool, args: anytype, safeguard: bool) GenericReturnT(f) {
+            if (safeguard)
+                return undefined;
             suspend {}
             defer {
                 if (should_yield)
@@ -132,9 +133,9 @@ fn quicksum(scheduler: Scheduler, m: usize, M: usize) anyerror!usize {
 
     // Express some concurrency in your problem
     const i = @divFloor(M - m + 1, 3);
-    var left = try scheduler.spawn(quicksum, null, .{ scheduler, m, i + m });
-    var mid = try scheduler.spawn(quicksum, null, .{ scheduler, i + m, 2 * i + m });
-    var right = try scheduler.spawn(quicksum, null, .{ scheduler, 2 * i + m, M });
+    var left = try scheduler.spawn(quicksum, .{ scheduler, m, i + m });
+    var mid = try scheduler.spawn(quicksum, .{ scheduler, i + m, 2 * i + m });
+    var right = try scheduler.spawn(quicksum, .{ scheduler, 2 * i + m, M });
 
     // Request your answers
     var total: usize = 0;

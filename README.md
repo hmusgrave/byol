@@ -37,9 +37,9 @@ fn quicksum(scheduler: Scheduler, m: usize, M: usize) anyerror!usize {
     // Express some concurrency in your problem. This division into 3 is
     // arbitrary, just to show you can spawn however many times you like.
     const i = @divFloor(M - m + 1, 3);
-    var left = try scheduler.spawn(quicksum, null, .{ scheduler, m, i + m });
-    var mid = try scheduler.spawn(quicksum, null, .{ scheduler, i + m, 2 * i + m });
-    var right = try scheduler.spawn(quicksum, null, .{ scheduler, 2 * i + m, M });
+    var left = try scheduler.spawn(quicksum, .{ scheduler, m, i + m });
+    var mid = try scheduler.spawn(quicksum, .{ scheduler, i + m, 2 * i + m });
+    var right = try scheduler.spawn(quicksum, .{ scheduler, 2 * i + m, M });
 
     // Request your answers.
     var total: usize = 0;
