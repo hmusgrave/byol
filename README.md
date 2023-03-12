@@ -1,4 +1,4 @@
-# BYOL
+# BYOL (shelved till async is re-released with Zig 0.11)
 
 Bring Your Own Loop -- A memory-efficient, straggler-avoiding, cache-friendly scheduler
 
